@@ -73,3 +73,22 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+  # Fixed-name copies so README links always fetch the newest version:
+  # https://github.com/<owner>/<repo>/releases/latest/download/MonoCode-SFTP.dmg
+  stable-links:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload version-less download names
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir dl && cd dl
+          gh release download "$TAG" --repo "$REPO" --pattern '*_aarch64.dmg' --pattern '*-setup.exe'
+          mv ./*_aarch64.dmg MonoCode-SFTP.dmg
+          mv ./*-setup.exe MonoCode-SFTP-setup.exe
+          gh release upload "$TAG" MonoCode-SFTP.dmg MonoCode-SFTP-setup.exe --repo "$REPO" --clobber

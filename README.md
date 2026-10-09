@@ -45,13 +45,15 @@ Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, OpenCod
 > - [fx](https://fx.sh) - `curl -fsSL https://fx.sh/setup.sh | bash` then `fx login`
 > - [Hermes Agent](https://github.com/NousResearch/hermes-agent) - macOS/Linux: `curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`; Windows PowerShell: `iex (irm https://hermes-agent.nousresearch.com/install.ps1)`; then run `hermes model`
 
-macOS (Apple Silicon): download [MonoCode.dmg](https://dl.usemono.dev/MonoCode.dmg), open it, drag MonoCode to Applications.
+macOS (Apple Silicon): download [MonoCode-SFTP.dmg](https://github.com/fatosbytyqi/monocode-sftp/releases/latest/download/MonoCode-SFTP.dmg), open it, drag MonoCode SFTP to Applications. The app is not notarized by Apple, so open it the first time with right-click → **Open** → **Open**. If macOS says it is damaged, run `xattr -dr com.apple.quarantine "/Applications/MonoCode SFTP.app"` once.
 
-macOS (Intel): download [MonoCode_x64.dmg](https://dl.usemono.dev/MonoCode_x64.dmg), open it, drag MonoCode to Applications.
+macOS (Intel): no prebuilt download yet; [build from source](#build-from-source).
 
-Linux (x86_64): download the `.deb` or AppImage from [GitHub Releases](https://github.com/hardbeat920/monocode/releases/latest). Install the `.deb` with `sudo apt install ./MonoCode_*.deb`. The AppImage needs WebKitGTK 4.1 on the host, the same as the `.deb` (`libwebkit2gtk-4.1-0` on Debian/Ubuntu, `webkit2gtk4.1` on Fedora, `webkit2gtk-4.1` on Arch); make it executable with `chmod +x MonoCode_*.AppImage` and run it. The AppImage updates itself from Settings → General; the `.deb` and `.rpm` update through apt or dnf. Keep the AppImage somewhere you can write to (for example `~/Applications`) so updates can replace it. On Fedora and Enterprise Linux 10, download the `.rpm` from the same release page — see [Fedora / Enterprise Linux packages](#fedora--enterprise-linux-packages) for the one extra repository step Enterprise Linux needs.
+Linux: no prebuilt download yet; [build from source](#build-from-source) (see the Ubuntu / Debian and Fedora sections below).
 
-Windows (x86_64): download the NSIS installer from [GitHub Releases](https://github.com/hardbeat920/monocode/releases/latest) and run it.
+Windows (x86_64): download [MonoCode-SFTP-setup.exe](https://github.com/fatosbytyqi/monocode-sftp/releases/latest/download/MonoCode-SFTP-setup.exe) and run it. If SmartScreen warns, choose **More info** → **Run anyway**.
+
+All versions: [GitHub Releases](https://github.com/fatosbytyqi/monocode-sftp/releases). Installed copies update themselves when a new release is published.
 
 ## Some notes
 
@@ -105,7 +107,7 @@ Tauri loads `src-tauri/tauri.linux.conf.json` automatically for Linux developmen
 
 ### Fedora / Enterprise Linux packages
 
-On Fedora, or on an Enterprise Linux 10 system (registered RHEL, Rocky, Alma, CentOS Stream, Oracle), install the release `.rpm` from [GitHub Releases](https://github.com/hardbeat920/monocode/releases/latest). Enterprise Linux needs EPEL first, because `webkit2gtk4.1` is an EPEL package there — CRB is not needed to run MonoCode. On Oracle Linux 10, `epel-release` does not enable `ol10_developer_EPEL`, which is the repository that provides that package. Enable it before installing the rpm:
+On Fedora, or on an Enterprise Linux 10 system (registered RHEL, Rocky, Alma, CentOS Stream, Oracle), install an `.rpm` you built with `npm run build:fedora` (see [Build from source](#build-from-source)); MonoCode SFTP does not publish one yet. Enterprise Linux needs EPEL first, because `webkit2gtk4.1` is an EPEL package there — CRB is not needed to run MonoCode. On Oracle Linux 10, `epel-release` does not enable `ol10_developer_EPEL`, which is the repository that provides that package. Enable it before installing the rpm:
 
 ```bash
 # Enterprise Linux 10 only; skip on Fedora.
