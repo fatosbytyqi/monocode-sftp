@@ -36,7 +36,7 @@ describe("releaseNotesForVersion", () => {
 
     expect(release?.source).toEqual({ version: "0.1.2" });
     expect(releaseNotesTitle(release!.source.version)).toBe(
-      "What's new in MonoCode 0.1.2",
+      "What's new in MonoCode SFTP 0.1.2",
     );
     expect(release?.markdown).toContain("## [0.1.2]");
     expect(release?.markdown).not.toContain("## [0.1.3]");
@@ -121,4 +121,13 @@ describe("formatReleaseDate", () => {
       expect(formatReleaseDate(value)).toBe(value);
     },
   );
+});
+
+describe("MonoCode SFTP changelog", () => {
+  it("has notes for every MonoCode SFTP release", async () => {
+    const { releaseNotesForVersion } = await import("./releaseNotes");
+    for (const version of ["1.0.0", "1.0.1", "1.1.0", "1.1.1"]) {
+      expect(releaseNotesForVersion(version)?.markdown).toContain(`## [${version}]`);
+    }
+  });
 });

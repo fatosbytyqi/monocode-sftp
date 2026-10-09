@@ -7,9 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-09
+
 ### Fixed
 
-- Markdown table columns keep a readable minimum width and top-aligned content; narrow panes scroll horizontally instead of squeezing file names into stacked text.
+- **What's new** shows the release notes for MonoCode SFTP versions. The changelog now covers every MonoCode SFTP release, and GitHub releases and the in-app update prompt use the same notes.
+
+## [1.1.0] - 2026-10-09
+
+### Added
+
+- **Settings → Code Editor** with an on/off switch for each code-intelligence feature:
+  - **Word completion** and **snippets** for PHP and WordPress (`add_action`, `WP_Query` loop, `enqueue_style`…), JavaScript, CSS/SCSS/Less and HTML.
+  - **Language servers**, the engines behind VS Code's IntelliSense: suggestions from the whole project, parameter hints, hover docs, go to definition and real error checking for PHP (Intelephense, with WordPress functions), JavaScript/TypeScript, CSS/SCSS/Less, HTML and JSON. Each one installs with one click into the app's own folder.
+  - **AI inline suggestions**: grey text while you type; Tab accepts, Esc dismisses. Works with any installed agent (Claude Code, Codex, Cursor, Grok, OpenCode, Pi, omp, Antigravity, Hermes, fx) through its own sign-in, with no API key. Suggestions stream in as they are written, the agent stays running between suggestions, and typing the suggested characters keeps the rest on screen.
+  - **Compile SCSS / Less on save**: saving a `.scss` or `.less` file writes the `.css`. Partials recompile the files that import them, a first-line comment such as `// out: ../css/style.css, compress: true` sets options per file, and the compiled CSS uploads with SFTP when the project uploads on save.
+- **Setup SFTP…** in the project menu: a form for every SFTP and FTP option, with a **Test connection** button and tag pickers for the file watcher.
+
+### Fixed
+
+- `.scss`, `.sass` and `.less` files are syntax highlighted, and hex colors and stylesheet variables are colored.
+
+## [1.0.1] - 2026-10-09
+
+### Fixed
+
+- Windows installs receive signed in-app updates.
+
+## [1.0.0] - 2026-10-09
+
+### Added
+
+- **MonoCode SFTP**: MonoCode with built-in SFTP / FTP deployment, configured with the VS Code SFTP extension's `.vscode/sftp.json` or a new `.monocode/sftp.json`.
+  - Upload on save, download on open, a file watcher, upload / download of files and folders, and sync in either or both directions.
+  - **Remote** sidebar tab: browse the server, open remote files, edit in local, create, rename and delete on the server, switch profiles, open SSH in a terminal, and an output log.
+  - Explorer **SFTP** menu, diff with the server, profiles, multiple servers per project, jump hosts, SSH agent, key and two-factor sign-in, and FTP / FTPS.
+- The app updates itself from this project's GitHub releases.
+
+### Included from MonoCode
+
+- Everything in MonoCode 0.10.0 below, plus later upstream fixes:
+  - Markdown table columns keep a readable minimum width and top-aligned content; narrow panes scroll horizontally instead of squeezing file names into stacked text.
 
 ## [0.10.0] - 2026-10-08
 

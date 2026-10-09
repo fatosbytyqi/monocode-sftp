@@ -58,6 +58,26 @@ jobs:
             exit 1
           fi
 
+      - name: Release notes from CHANGELOG.md
+        id: notes
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          node -e '
+            const text = require("fs").readFileSync("CHANGELOG.md", "utf8");
+            const v = process.argv[1].replace(/[.]/g, "\\.");
+            const m = new RegExp("^## \\[" + v + "\\][^\\n]*\\n([\\s\\S]*?)(?=^## |$(?![\\s\\S]))", "m").exec(text);
+            const body = (m ? m[1].trim() : "See CHANGELOG.md.") +
+              "\n\n---\nDownload the .dmg (macOS, Apple Silicon) or the -setup.exe (Windows). Already installed? The app updates itself from this release.";
+            require("fs").writeFileSync("release-notes.md", body);
+          ' "$version"
+          {
+            echo "body<<NOTES_EOF"
+            cat release-notes.md
+            echo
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -66,9 +86,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: MonoCode SFTP ${{ github.ref_name }}
-          releaseBody: |
-            Download the .dmg (macOS, Apple Silicon) or the -setup.exe (Windows).
-            Already installed? The app updates itself from this release.
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
