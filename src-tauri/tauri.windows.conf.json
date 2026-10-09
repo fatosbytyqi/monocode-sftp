@@ -21,7 +21,7 @@
     "targets": [
       "nsis"
     ],
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "category": "DeveloperTool",
     "windows": {
       "nsis": {
