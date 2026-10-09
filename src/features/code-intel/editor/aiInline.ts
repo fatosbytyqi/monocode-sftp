@@ -17,20 +17,23 @@ import {
 } from "@codemirror/view";
 import { completeWithAgent } from "../model/aiComplete";
 
-type Ghost = { pos: number; text: string; doc: Text };
+type Ghost = { pos: number; text: string; doc: Text; pending?: boolean };
 
 const setGhost = StateEffect.define<Ghost | null>();
 
 class GhostWidget extends WidgetType {
-  constructor(readonly text: string) {
+  constructor(
+    readonly text: string,
+    readonly pending = false,
+  ) {
     super();
   }
   eq(other: GhostWidget) {
-    return other.text === this.text;
+    return other.text === this.text && other.pending === this.pending;
   }
   toDOM() {
     const span = document.createElement("span");
-    span.className = "cm-ai-ghost";
+    span.className = this.pending ? "cm-ai-ghost cm-ai-pending" : "cm-ai-ghost";
     span.textContent = this.text;
     span.setAttribute("aria-hidden", "true");
     return span;
@@ -52,7 +55,7 @@ const ghostField = StateField.define<Ghost | null>({
       ghost
         ? Decoration.set([
             Decoration.widget({
-              widget: new GhostWidget(ghost.text),
+              widget: new GhostWidget(ghost.text, ghost.pending),
               side: 1,
             }).range(ghost.pos),
           ])
@@ -62,7 +65,7 @@ const ghostField = StateField.define<Ghost | null>({
 
 function accept(view: EditorView): boolean {
   const ghost = view.state.field(ghostField, false);
-  if (!ghost || ghost.doc !== view.state.doc) return false;
+  if (!ghost || ghost.pending || ghost.doc !== view.state.doc) return false;
   view.dispatch({
     changes: { from: ghost.pos, insert: ghost.text },
     selection: { anchor: ghost.pos + ghost.text.length },
@@ -129,6 +132,9 @@ export function aiInline(options: AiInlineOptions): Extension {
         const doc = state.doc;
         const controller = new AbortController();
         this.inFlight = controller;
+        this.view.dispatch({
+          effects: setGhost.of({ pos, text: " …", doc, pending: true }),
+        });
         try {
           const text = await completeWithAgent({
             provider: options.provider,
@@ -140,13 +146,19 @@ export function aiInline(options: AiInlineOptions): Extension {
             signal: controller.signal,
           });
           if (this.inFlight === controller) this.inFlight = null;
-          if (id !== this.request || this.view.state.doc !== doc || !text)
+          if (id !== this.request || this.view.state.doc !== doc) return;
+          if (!text) {
+            this.view.dispatch({ effects: setGhost.of(null) });
             return;
+          }
           this.view.dispatch({ effects: setGhost.of({ pos, text, doc }) });
           lastError = "";
         } catch (error) {
           if (this.inFlight === controller) this.inFlight = null;
           if (controller.signal.aborted) return;
+          if (this.view.state.field(ghostField, false)?.pending) {
+            this.view.dispatch({ effects: setGhost.of(null) });
+          }
           const message =
             error instanceof Error ? error.message : String(error);
           if (message !== lastError) {
@@ -176,6 +188,13 @@ export function aiInline(options: AiInlineOptions): Extension {
         opacity: "0.45",
         fontStyle: "italic",
         whiteSpace: "pre",
+      },
+      ".cm-ai-pending": {
+        animation: "cm-ai-pulse 1s ease-in-out infinite",
+      },
+      "@keyframes cm-ai-pulse": {
+        "0%, 100%": { opacity: "0.2" },
+        "50%": { opacity: "0.6" },
       },
     }),
   ];

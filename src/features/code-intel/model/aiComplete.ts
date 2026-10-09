@@ -11,6 +11,10 @@ import { HARNESSES, type HarnessId } from "../../sessions/model/session";
 const PREFIX_CHARS = 6000;
 const SUFFIX_CHARS = 2000;
 const TIMEOUT_MS = 45_000;
+/** Start a fresh conversation after this many suggestions, so history stays small. */
+const RECYCLE_AFTER = 8;
+/** Shut the warm backend down after this long without suggestions. */
+const IDLE_MS = 3 * 60_000;
 
 /** Providers tried, in order, when the setting is "auto". */
 const AUTO_ORDER: HarnessId[] = [
@@ -35,6 +39,7 @@ export function buildCompletionPrompt(
   const after = suffix.slice(0, SUFFIX_CHARS);
   return [
     "You are an inline code completion engine inside a code editor.",
+    "Each request is independent: ignore any earlier requests in this conversation.",
     `File: ${path}`,
     "The code before the cursor is in <prefix>, the code after it is in <suffix>.",
     "Do not use tools, do not read or edit files: answer from the text below only.",
@@ -80,6 +85,48 @@ function resolveModel(harness: HarnessId, model: string | undefined): string {
   return modelsFor(harness)[0]?.id ?? "";
 }
 
+type Warm = {
+  uses: number;
+  idle?: ReturnType<typeof setTimeout>;
+  hiddenSession?: string;
+};
+const warm = new Map<HarnessId, Warm>();
+
+function stopWarm(harness: HarnessId) {
+  const state = warm.get(harness);
+  warm.delete(harness);
+  if (!state) return;
+  clearTimeout(state.idle);
+  const adapter = getHarness(harness);
+  if (state.hiddenSession) {
+    void adapter?.forgetSession(state.hiddenSession).catch(() => {});
+  } else {
+    void adapter?.stopTextPrompt?.().catch(() => {});
+  }
+}
+
+/** Count a use of the warm backend; recycle it when it has served enough. */
+function touchWarm(harness: HarnessId): Warm {
+  let state = warm.get(harness);
+  if (state && state.uses >= RECYCLE_AFTER) {
+    stopWarm(harness);
+    state = undefined;
+  }
+  if (!state) {
+    state = { uses: 0 };
+    warm.set(harness, state);
+  }
+  state.uses++;
+  clearTimeout(state.idle);
+  state.idle = setTimeout(() => stopWarm(harness), IDLE_MS);
+  return state;
+}
+
+/** Turn off every warm completion backend (e.g. when AI suggestions are switched off). */
+export function stopWarmCompletions() {
+  for (const harness of [...warm.keys()]) stopWarm(harness);
+}
+
 /**
  * Providers without an isolated text-prompt backend (Antigravity, Hermes, fx)
  * answer through a hidden, read-only one-off session that is forgotten after.
@@ -93,7 +140,10 @@ async function promptViaHiddenSession(input: {
 }): Promise<string> {
   const adapter = getHarness(input.harness);
   if (!adapter) throw new Error(`${input.harness} is not available`);
-  const sessionId = `monocode-completion-${crypto.randomUUID()}`;
+  // One hidden session per provider stays open between suggestions.
+  const state = touchWarm(input.harness);
+  state.hiddenSession ??= `monocode-completion-${crypto.randomUUID()}`;
+  const sessionId = state.hiddenSession;
   let output = "";
   let failure: string | null = null;
   const onEvent = (event: HarnessEvent) => {
@@ -134,9 +184,12 @@ async function promptViaHiddenSession(input: {
     input.signal?.throwIfAborted();
     if (failure && !output) throw new Error(failure);
     return output;
+  } catch (error) {
+    // A failed or cancelled turn leaves the session in an unknown state.
+    stopWarm(input.harness);
+    throw error;
   } finally {
     input.signal?.removeEventListener("abort", onAbort);
-    void adapter.forgetSession(sessionId).catch(() => {});
   }
 }
 
@@ -164,6 +217,7 @@ export async function completeWithAgent(input: {
   }
   const prompt = buildCompletionPrompt(input.path, input.prefix, input.suffix);
   const model = resolveModel(harness, input.model);
+  if (canRunHarnessTextPrompt(harness)) touchWarm(harness);
   const output = canRunHarnessTextPrompt(harness)
     ? await runHarnessTextPrompt({
         harness,
@@ -172,6 +226,10 @@ export async function completeWithAgent(input: {
         // Read-only, single turn: a completion must never run tools or edit files.
         intent: "plan",
         ephemeral: true,
+        // Reuse one running process instead of starting the CLI per suggestion.
+        keepWarm: true,
+        // Ask for quick answers where the provider supports an effort level.
+        modelSettings: { effort: "low", reasoningEffort: "low" },
         prompt,
         timeoutMs: TIMEOUT_MS,
         signal: input.signal,

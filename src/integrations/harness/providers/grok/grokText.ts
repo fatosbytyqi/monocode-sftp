@@ -72,6 +72,7 @@ export async function runGrokTextPrompt(input: {
   timeoutMs?: number;
   signal?: AbortSignal;
   onEvent?: (event: HarnessEvent) => void;
+  keepWarm?: boolean;
 }): Promise<string> {
   const run = turns.catch(() => undefined).then(() => promptOnLive(input));
   turns = run.then(
@@ -89,6 +90,7 @@ async function promptOnLive(input: {
   timeoutMs?: number;
   signal?: AbortSignal;
   onEvent?: (event: HarnessEvent) => void;
+  keepWarm?: boolean;
 }): Promise<string> {
   input.signal?.throwIfAborted();
   const session = await ensureLive(input.cwd, input.model, input.modelSettings);
@@ -124,7 +126,8 @@ async function promptOnLive(input: {
     abort.detach();
     session.collecting = false;
     session.onEvent = undefined;
-    await dropLive();
+    // Inline completions keep the process warm between requests.
+    if (!input.keepWarm) await dropLive();
   }
 }
 

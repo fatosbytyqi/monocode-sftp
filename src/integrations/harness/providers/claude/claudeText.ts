@@ -136,6 +136,7 @@ export async function runClaudeTextPrompt(input: {
   timeoutMs?: number;
   signal?: AbortSignal;
   onEvent?: (event: HarnessEvent) => void;
+  keepWarm?: boolean;
 }): Promise<string> {
   const run = turns.catch(() => undefined).then(() => promptOnLive(input));
   turns = run.then(
@@ -155,6 +156,7 @@ async function promptOnLive(input: {
   timeoutMs?: number;
   signal?: AbortSignal;
   onEvent?: (event: HarnessEvent) => void;
+  keepWarm?: boolean;
 }): Promise<string> {
   input.signal?.throwIfAborted();
   const model = pickTextModel(input.model);
@@ -225,7 +227,8 @@ async function promptOnLive(input: {
     session.collecting = false;
     session.turnDone = null;
     session.turnFailed = null;
-    await dropLive();
+    // Inline completions keep the process warm between requests.
+    if (!input.keepWarm) await dropLive();
   }
 }
 

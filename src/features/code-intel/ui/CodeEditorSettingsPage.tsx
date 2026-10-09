@@ -23,6 +23,7 @@ import { stopAllLsp } from "../model/lspClients";
 import {
   completionProviderReady,
   resolveCompletionProvider,
+  stopWarmCompletions,
 } from "../model/aiComplete";
 import {
   canRunHarnessTextPrompt,
@@ -312,9 +313,10 @@ export function CodeEditorSettingsPage() {
           <Toggle
             label="AI inline suggestions"
             on={settings.ai.enabled}
-            onChange={(v) =>
-              updateCodeIntel((s) => ({ ...s, ai: { ...s.ai, enabled: v } }))
-            }
+            onChange={(v) => {
+              updateCodeIntel((s) => ({ ...s, ai: { ...s.ai, enabled: v } }));
+              if (!v) stopWarmCompletions();
+            }}
           />
         </Row>
         <Row
@@ -333,12 +335,13 @@ export function CodeEditorSettingsPage() {
             label="Provider"
             value={settings.ai.provider}
             options={providerOptions()}
-            onChange={(provider) =>
+            onChange={(provider) => {
+              stopWarmCompletions();
               updateCodeIntel((s) => ({
                 ...s,
                 ai: { ...s.ai, provider, model: "auto" },
-              }))
-            }
+              }));
+            }}
           />
         </Row>
         <Row

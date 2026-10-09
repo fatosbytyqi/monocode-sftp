@@ -78,6 +78,7 @@ export async function runOpenCodeTextPrompt(input: {
   timeoutMs?: number;
   signal?: AbortSignal;
   onEvent?: (event: HarnessEvent) => void;
+  keepWarm?: boolean;
 }): Promise<string> {
   const run = turns.catch(() => undefined).then(() => promptOnLive(input));
   turns = run.then(
@@ -96,6 +97,7 @@ async function promptOnLive(input: {
   timeoutMs?: number;
   signal?: AbortSignal;
   onEvent?: (event: HarnessEvent) => void;
+  keepWarm?: boolean;
 }): Promise<string> {
   input.signal?.throwIfAborted();
   const session = await ensureLive(input.cwd, input.model, input.modelSettings);
@@ -130,7 +132,8 @@ async function promptOnLive(input: {
   } finally {
     abort.detach();
     session.onEvent = undefined;
-    await dropLive();
+    // Inline completions keep the process warm between requests.
+    if (!input.keepWarm) await dropLive();
   }
 }
 
@@ -168,9 +171,7 @@ async function startLive(
   const generation = assertSupportedOpenCodeVersion(version);
 
   const service =
-    generation === "v2"
-      ? await resolveOpenCodeV2Service(path, cwd)
-      : undefined;
+    generation === "v2" ? await resolveOpenCodeV2Service(path, cwd) : undefined;
   serverUrl = service?.url ?? "";
   if (generation === "v1") {
     watchChild(
@@ -204,12 +205,7 @@ async function startLive(
       generation === "v2"
         ? serverUrl
         : await waitForUrl(() => serverUrl, SERVER_TIMEOUT_MS);
-    const client = new OpenCodeClient(
-      url,
-      cwd,
-      generation,
-      service?.password,
-    );
+    const client = new OpenCodeClient(url, cwd, generation, service?.password);
     const created = await client.createSession({
       permission: [{ permission: "*", pattern: "*", action: "deny" }],
     });

@@ -48,9 +48,11 @@ import {
   completeWithAgent,
   parseCompletion,
   resolveCompletionProvider,
+  stopWarmCompletions,
 } from "./aiComplete";
 
 beforeEach(() => {
+  stopWarmCompletions();
   available.clear();
   vi.clearAllMocks();
 });
@@ -99,7 +101,9 @@ describe("AI completion through installed agents", () => {
       expect.objectContaining({
         harness: "codex",
         intent: "plan",
+        keepWarm: true,
         model: "native:codex-default",
+        modelSettings: expect.objectContaining({ reasoningEffort: "low" }),
       }),
     );
     expect(sendTurn).not.toHaveBeenCalled();
@@ -128,7 +132,26 @@ describe("AI completion through installed agents", () => {
       7,
       "deny",
     );
-    expect(forgetSession).toHaveBeenCalled();
+    // The hidden session stays open for the next suggestion…
+    expect(forgetSession).not.toHaveBeenCalled();
+    const first = (
+      sendTurn.mock.calls[0]![0] as unknown as { sessionId: string }
+    ).sessionId;
+    await completeWithAgent({
+      provider: "antigravity",
+      model: "auto",
+      cwd: "/p",
+      path: "/p/a.ts",
+      prefix: "",
+      suffix: "",
+    });
+    expect(
+      (sendTurn.mock.calls[1]![0] as unknown as { sessionId: string })
+        .sessionId,
+    ).toBe(first);
+    // …until suggestions are switched off.
+    stopWarmCompletions();
+    expect(forgetSession).toHaveBeenCalledWith(first);
   });
 
   it("explains when nothing is installed", async () => {

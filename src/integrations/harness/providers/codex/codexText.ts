@@ -190,7 +190,8 @@ async function promptOnLive(input: TextPromptInput): Promise<string> {
     session.collecting = false;
     session.turnDone = null;
     session.turnFailed = null;
-    await dropLive();
+    // Inline completions keep the process warm between requests.
+    if (!input.keepWarm) await dropLive();
   }
 }
 async function ensureLive(input: {

@@ -43,6 +43,8 @@ export type TextPromptInput = {
   timeoutMs?: number;
   signal?: AbortSignal;
   onEvent?: (event: HarnessEvent) => void;
+  /** Leave the text backend running after this prompt (inline completions). */
+  keepWarm?: boolean;
 };
 
 /**
