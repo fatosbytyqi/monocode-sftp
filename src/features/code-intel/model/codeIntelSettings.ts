@@ -13,7 +13,9 @@ export type CodeIntelSettings = {
   lsp: { enabled: boolean } & Record<LspServerId, boolean>;
   ai: {
     enabled: boolean;
-    /** "auto" (Haiku, as for session titles) or a Claude model id. */
+    /** "auto" (first installed agent) or a provider id such as "codex". */
+    provider: string;
+    /** "auto" (the provider's default model) or a model id. */
     model: string;
     /** Wait this long after typing stops before asking. */
     debounceMs: number;
@@ -43,6 +45,7 @@ export const DEFAULT_CODE_INTEL: CodeIntelSettings = {
   },
   ai: {
     enabled: false,
+    provider: "auto",
     model: "auto",
     debounceMs: 700,
   },
@@ -66,9 +69,20 @@ function merge(saved: Partial<CodeIntelSettings> | null): CodeIntelSettings {
     wordCompletion: saved.wordCompletion ?? d.wordCompletion,
     snippets: saved.snippets ?? d.snippets,
     lsp: { ...d.lsp, ...(saved.lsp ?? {}) },
-    ai: { ...d.ai, ...(saved.ai ?? {}) },
+    ai: migrateAi({ ...d.ai, ...(saved.ai ?? {}) }, saved.ai),
     compile: { ...d.compile, ...(saved.compile ?? {}) },
   };
+}
+
+/** Earlier builds stored only a Claude model; keep it pointing at Claude. */
+function migrateAi(
+  ai: CodeIntelSettings["ai"],
+  saved: Partial<CodeIntelSettings["ai"]> | undefined,
+): CodeIntelSettings["ai"] {
+  if (saved && !saved.provider && saved.model && saved.model !== "auto") {
+    return { ...ai, provider: "claude" };
+  }
+  return ai;
 }
 
 let cached: CodeIntelSettings | null = null;

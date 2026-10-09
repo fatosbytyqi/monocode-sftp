@@ -1,32 +1,70 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../integrations/harness/providers/claude/claudeText", () => ({
-  runClaudeTextPrompt: vi.fn(
-    async () => "Sure:\n<insert>\n  return $a;</insert>",
-  ),
+const available = new Set<string>();
+const textCapable = new Set([
+  "claude",
+  "codex",
+  "cursor",
+  "grok",
+  "opencode",
+  "pi",
+  "omp",
+]);
+const respondApproval = vi.fn();
+const forgetSession = vi.fn(async () => {});
+const sendTurn = vi.fn(async (input: { onEvent: (e: unknown) => void }) => {
+  input.onEvent({
+    type: "approval.requested",
+    requestId: 7,
+    title: "Read file",
+  });
+  input.onEvent({ type: "message.delta", text: "<insert>\n  return 1;" });
+  input.onEvent({ type: "message.delta", text: "</insert>" });
+});
+
+vi.mock("../../../integrations/harness", () => ({
+  isHarnessAvailable: (id: string) => available.has(id),
+  getHarness: () => ({
+    live: true,
+    sendTurn,
+    respondApproval,
+    forgetSession,
+    cancelTurn: vi.fn(async () => {}),
+  }),
+  canRunHarnessTextPrompt: (id: string) => textCapable.has(id),
+  runHarnessTextPrompt: vi.fn(async () => "<insert>$x = 1;</insert>"),
 }));
 
-import { runClaudeTextPrompt } from "../../../integrations/harness/providers/claude/claudeText";
+vi.mock("../../sessions/model/models", () => ({
+  modelsFor: (h: string) => [
+    { id: `${h}-default`, name: "Default", harness: h },
+  ],
+  nativeModelId: (id: string) => `native:${id}`,
+}));
+
+import { runHarnessTextPrompt } from "../../../integrations/harness";
 import {
   buildCompletionPrompt,
-  completeWithClaude,
+  completeWithAgent,
   parseCompletion,
+  resolveCompletionProvider,
 } from "./aiComplete";
 
-describe("AI completion via Claude Code", () => {
-  it("keeps leading whitespace and newlines inside <insert>", () => {
-    expect(
-      parseCompletion("<insert>\n  return $a;\n</insert>", "function f() {"),
-    ).toBe("\n  return $a;");
-    expect(parseCompletion("<insert></insert>", "x")).toBe("");
-    expect(parseCompletion("no tags at all", "x")).toBe("");
-  });
+beforeEach(() => {
+  available.clear();
+  vi.clearAllMocks();
+});
 
-  it("strips fences and an echo of the current line", () => {
+describe("AI completion through installed agents", () => {
+  it("keeps whitespace inside <insert> and drops echoes", () => {
+    expect(parseCompletion("<insert>\n  return $a;\n</insert>", "f() {")).toBe(
+      "\n  return $a;",
+    );
     expect(parseCompletion("<insert>```php\necho 1;\n```</insert>", "")).toBe(
       "echo 1;",
     );
     expect(parseCompletion("<insert>$a = 1;</insert>", "    $a")).toBe(" = 1;");
+    expect(parseCompletion("nothing", "x")).toBe("");
   });
 
   it("bounds the context sent", () => {
@@ -36,19 +74,72 @@ describe("AI completion via Claude Code", () => {
       "b".repeat(20_000),
     );
     expect(prompt.length).toBeLessThan(9_000);
-    expect(prompt).toContain("<prefix>");
   });
 
-  it("asks read-only and single-turn, without an API key", async () => {
-    const text = await completeWithClaude({
+  it("auto picks the first installed agent", () => {
+    expect(resolveCompletionProvider("auto")).toBeNull();
+    available.add("antigravity");
+    available.add("codex");
+    expect(resolveCompletionProvider("auto")).toBe("codex");
+    expect(resolveCompletionProvider("antigravity")).toBe("antigravity");
+  });
+
+  it("uses the shared read-only text prompt where the provider has one", async () => {
+    available.add("codex");
+    const text = await completeWithAgent({
+      provider: "codex",
+      model: "auto",
       cwd: "/p",
       path: "/p/a.php",
+      prefix: "",
+      suffix: "",
+    });
+    expect(text).toBe("$x = 1;");
+    expect(runHarnessTextPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        harness: "codex",
+        intent: "plan",
+        model: "native:codex-default",
+      }),
+    );
+    expect(sendTurn).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a hidden read-only session (Antigravity) and denies tool use", async () => {
+    available.add("antigravity");
+    const text = await completeWithAgent({
+      provider: "antigravity",
+      model: "auto",
+      cwd: "/p",
+      path: "/p/a.ts",
       prefix: "function f() {",
       suffix: "}",
     });
-    expect(text).toBe("\n  return $a;");
-    expect(runClaudeTextPrompt).toHaveBeenCalledWith(
-      expect.objectContaining({ cwd: "/p", intent: "plan", model: undefined }),
+    expect(text).toBe("\n  return 1;");
+    expect(sendTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: "plan",
+        runtimeMode: "supervised",
+        model: "antigravity-default",
+      }),
     );
+    expect(respondApproval).toHaveBeenCalledWith(
+      expect.stringMatching(/^monocode-completion-/),
+      7,
+      "deny",
+    );
+    expect(forgetSession).toHaveBeenCalled();
+  });
+
+  it("explains when nothing is installed", async () => {
+    await expect(
+      completeWithAgent({
+        provider: "auto",
+        cwd: "/p",
+        path: "a",
+        prefix: "",
+        suffix: "",
+      }),
+    ).rejects.toThrow(/No installed agent/);
   });
 });

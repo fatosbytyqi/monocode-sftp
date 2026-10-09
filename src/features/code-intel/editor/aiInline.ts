@@ -15,7 +15,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { completeWithClaude } from "../model/aiComplete";
+import { completeWithAgent } from "../model/aiComplete";
 
 type Ghost = { pos: number; text: string; doc: Text };
 
@@ -81,8 +81,10 @@ function dismiss(view: EditorView): boolean {
 export type AiInlineOptions = {
   path: string;
   cwd: string;
-  /** Claude model id, or undefined for the default (Haiku). */
-  model?: string;
+  /** "auto" or a provider id (claude, codex, antigravity, …). */
+  provider: string;
+  /** "auto" or a model id for that provider. */
+  model: string;
   debounceMs: number;
   onError?: (message: string) => void;
 };
@@ -128,7 +130,8 @@ export function aiInline(options: AiInlineOptions): Extension {
         const controller = new AbortController();
         this.inFlight = controller;
         try {
-          const text = await completeWithClaude({
+          const text = await completeWithAgent({
+            provider: options.provider,
             cwd: options.cwd,
             path: options.path,
             prefix: doc.sliceString(0, pos),

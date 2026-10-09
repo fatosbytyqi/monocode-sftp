@@ -24,7 +24,8 @@ export async function buildCodeIntel(
       aiInline({
         path,
         cwd: root,
-        model: settings.ai.model === "auto" ? undefined : settings.ai.model,
+        provider: settings.ai.provider,
+        model: settings.ai.model,
         debounceMs: settings.ai.debounceMs,
         onError: (message) => reportCodeIntel(`AI suggestions: ${message}`),
       }),

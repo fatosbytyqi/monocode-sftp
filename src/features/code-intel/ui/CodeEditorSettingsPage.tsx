@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -14,6 +20,21 @@ import {
   type LspServerId,
 } from "../model/codeIntelSettings";
 import { stopAllLsp } from "../model/lspClients";
+import {
+  completionProviderReady,
+  resolveCompletionProvider,
+} from "../model/aiComplete";
+import {
+  canRunHarnessTextPrompt,
+  getHarnessAvailabilitySnapshot,
+  subscribeHarnessAvailability,
+} from "../../../integrations/harness";
+import { modelsFor } from "../../sessions/model/models";
+import {
+  HARNESSES,
+  HARNESS_TITLE,
+  type HarnessId,
+} from "../../sessions/model/session";
 
 type ToolStatus = {
   id: string;
@@ -59,11 +80,40 @@ const SERVERS: { id: LspServerId; label: string; description: string }[] = [
   },
 ];
 
-const MODELS = [
-  { value: "auto", label: "Default (Haiku, same as session titles)" },
-  { value: "claude-sonnet-5-5", label: "Claude Sonnet 5.5, smarter, slower" },
-  { value: "claude-opus-5-5", label: "Claude Opus 5.5, most capable, slowest" },
-];
+/** Re-render when installed providers are detected. */
+function useAvailability(): number {
+  return useSyncExternalStore(
+    subscribeHarnessAvailability,
+    getHarnessAvailabilitySnapshot,
+    getHarnessAvailabilitySnapshot,
+  );
+}
+
+function providerOptions() {
+  return [
+    { value: "auto", label: "Auto (first installed agent)" },
+    ...HARNESSES.map((id) => ({
+      value: id,
+      label: completionProviderReady(id)
+        ? `${HARNESS_TITLE[id]}${canRunHarnessTextPrompt(id) ? "" : " (slower)"}`
+        : `${HARNESS_TITLE[id]} (not installed)`,
+    })),
+  ];
+}
+
+function modelOptions(provider: HarnessId | null) {
+  const models = provider ? modelsFor(provider) : [];
+  return [
+    {
+      value: "auto",
+      label: models[0] ? `Default (${models[0].name})` : "Default",
+    },
+    ...models.map((m) => ({
+      value: m.id,
+      label: m.provider ? `${m.name} · ${m.provider.name}` : m.name,
+    })),
+  ];
+}
 
 function SmallButton({
   children,
@@ -133,6 +183,8 @@ function useTools() {
 
 export function CodeEditorSettingsPage() {
   const settings = useCodeIntel();
+  useAvailability();
+  const resolvedProvider = resolveCompletionProvider(settings.ai.provider);
   const tools = useTools();
   const [outDir, setOutDir] = useState(settings.compile.outDir);
   const outDirTimer = useRef(0);
@@ -254,7 +306,7 @@ export function CodeEditorSettingsPage() {
       <Group
         id="ai-suggestions"
         title="AI suggestions"
-        description="Grey inline suggestions while you type. Tab accepts, Esc dismisses. Runs through your Claude Code sign-in, the same way MonoCode writes session titles and commit messages, so no API key is needed. Each suggestion counts toward your Claude plan usage."
+        description="Grey inline suggestions while you type. Tab accepts, Esc dismisses. Uses any agent you have installed (Claude Code, Codex, Cursor, Antigravity, …) through its own sign-in, the same way MonoCode writes session titles and answers side questions. No API key needed; suggestions count toward that agent's plan usage."
       >
         <Row label="AI inline suggestions">
           <Toggle
@@ -266,13 +318,37 @@ export function CodeEditorSettingsPage() {
           />
         </Row>
         <Row
+          label="Provider"
+          description={
+            resolvedProvider
+              ? `Suggestions come from ${HARNESS_TITLE[resolvedProvider]}${
+                  canRunHarnessTextPrompt(resolvedProvider)
+                    ? "."
+                    : ", through a hidden one-off session, which is slower."
+                }`
+              : "No installed agent found. Install and sign in to one in Settings → Providers."
+          }
+        >
+          <Select
+            label="Provider"
+            value={settings.ai.provider}
+            options={providerOptions()}
+            onChange={(provider) =>
+              updateCodeIntel((s) => ({
+                ...s,
+                ai: { ...s.ai, provider, model: "auto" },
+              }))
+            }
+          />
+        </Row>
+        <Row
           label="Model"
-          description="Haiku answers fastest, which matters most for typing suggestions."
+          description="Smaller, faster models suit typing suggestions best (Haiku, mini, flash…)."
         >
           <Select
             label="Model"
             value={settings.ai.model}
-            options={MODELS}
+            options={modelOptions(resolvedProvider)}
             onChange={(model) =>
               updateCodeIntel((s) => ({ ...s, ai: { ...s.ai, model } }))
             }
