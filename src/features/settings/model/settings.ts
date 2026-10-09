@@ -200,7 +200,7 @@ export const SETTINGS_INDEX: SettingsEntry[] = [
     id: "ai-suggestions",
     section: "editor",
     label: "AI inline suggestions",
-    keywords: "ai copilot ghost text claude anthropic api key completion",
+    keywords: "ai copilot ghost text claude code completion",
   },
   {
     id: "style-compile",

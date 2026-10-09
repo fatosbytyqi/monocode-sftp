@@ -13,10 +13,10 @@ export type CodeIntelSettings = {
   lsp: { enabled: boolean } & Record<LspServerId, boolean>;
   ai: {
     enabled: boolean;
+    /** "auto" (Haiku, as for session titles) or a Claude model id. */
     model: string;
     /** Wait this long after typing stops before asking. */
     debounceMs: number;
-    maxTokens: number;
   };
   compile: {
     scss: boolean;
@@ -43,9 +43,8 @@ export const DEFAULT_CODE_INTEL: CodeIntelSettings = {
   },
   ai: {
     enabled: false,
-    model: "claude-haiku-5-5",
-    debounceMs: 400,
-    maxTokens: 160,
+    model: "auto",
+    debounceMs: 700,
   },
   compile: {
     scss: false,

@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { completionStatus } from "@codemirror/autocomplete";
 import {
   Prec,
@@ -16,6 +15,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { completeWithClaude } from "../model/aiComplete";
 
 type Ghost = { pos: number; text: string; doc: Text };
 
@@ -80,9 +80,10 @@ function dismiss(view: EditorView): boolean {
 
 export type AiInlineOptions = {
   path: string;
-  model: string;
+  cwd: string;
+  /** Claude model id, or undefined for the default (Haiku). */
+  model?: string;
   debounceMs: number;
-  maxTokens: number;
   onError?: (message: string) => void;
 };
 
@@ -93,6 +94,7 @@ export function aiInline(options: AiInlineOptions): Extension {
     class {
       timer = 0;
       request = 0;
+      inFlight: AbortController | null = null;
       constructor(readonly view: EditorView) {}
       update(update: ViewUpdate) {
         const typed = update.transactions.some(
@@ -102,11 +104,16 @@ export function aiInline(options: AiInlineOptions): Extension {
         if (!update.docChanged && !update.selectionSet) return;
         window.clearTimeout(this.timer);
         this.request++;
+        this.cancel();
         if (!typed) return;
         this.timer = window.setTimeout(
           () => void this.ask(),
           options.debounceMs,
         );
+      }
+      cancel() {
+        this.inFlight?.abort();
+        this.inFlight = null;
       }
       async ask() {
         const state = this.view.state;
@@ -118,21 +125,25 @@ export function aiInline(options: AiInlineOptions): Extension {
         if (!/^[\s)\]}>;,'"`]*$/.test(line.text.slice(pos - line.from))) return;
         const id = ++this.request;
         const doc = state.doc;
+        const controller = new AbortController();
+        this.inFlight = controller;
         try {
-          const text = await invoke<string>("ai_complete", {
-            request: {
-              prefix: doc.sliceString(0, pos),
-              suffix: doc.sliceString(pos),
-              path: options.path,
-              model: options.model,
-              maxTokens: options.maxTokens,
-            },
+          const text = await completeWithClaude({
+            cwd: options.cwd,
+            path: options.path,
+            prefix: doc.sliceString(0, pos),
+            suffix: doc.sliceString(pos),
+            model: options.model,
+            signal: controller.signal,
           });
+          if (this.inFlight === controller) this.inFlight = null;
           if (id !== this.request || this.view.state.doc !== doc || !text)
             return;
           this.view.dispatch({ effects: setGhost.of({ pos, text, doc }) });
           lastError = "";
         } catch (error) {
+          if (this.inFlight === controller) this.inFlight = null;
+          if (controller.signal.aborted) return;
           const message =
             error instanceof Error ? error.message : String(error);
           if (message !== lastError) {
@@ -144,6 +155,7 @@ export function aiInline(options: AiInlineOptions): Extension {
       destroy() {
         window.clearTimeout(this.timer);
         this.request++;
+        this.cancel();
       }
     },
   );

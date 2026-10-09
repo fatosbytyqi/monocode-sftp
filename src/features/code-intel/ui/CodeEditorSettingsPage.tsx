@@ -28,7 +28,6 @@ type ToolsStatus = {
   dir: string;
   tools: ToolStatus[];
 };
-type KeyStatus = { saved: boolean; fromEnv: boolean };
 
 const SERVERS: { id: LspServerId; label: string; description: string }[] = [
   {
@@ -61,12 +60,9 @@ const SERVERS: { id: LspServerId; label: string; description: string }[] = [
 ];
 
 const MODELS = [
-  { value: "claude-haiku-5-5", label: "Claude Haiku 5.5 — fastest, cheapest" },
-  { value: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 — smarter, slower" },
-  {
-    value: "claude-opus-5-5",
-    label: "Claude Opus 5.5 — most capable, slowest",
-  },
+  { value: "auto", label: "Default (Haiku, same as session titles)" },
+  { value: "claude-sonnet-5-5", label: "Claude Sonnet 5.5, smarter, slower" },
+  { value: "claude-opus-5-5", label: "Claude Opus 5.5, most capable, slowest" },
 ];
 
 function SmallButton({
@@ -138,18 +134,8 @@ function useTools() {
 export function CodeEditorSettingsPage() {
   const settings = useCodeIntel();
   const tools = useTools();
-  const [key, setKey] = useState("");
-  const [keyStatus, setKeyStatus] = useState<KeyStatus | null>(null);
-  const [keyError, setKeyError] = useState<string | null>(null);
   const [outDir, setOutDir] = useState(settings.compile.outDir);
   const outDirTimer = useRef(0);
-
-  const refreshKey = useCallback(() => {
-    invoke<KeyStatus>("ai_key_status").then(setKeyStatus, () =>
-      setKeyStatus(null),
-    );
-  }, []);
-  useEffect(refreshKey, [refreshKey]);
 
   const tool = (id: string) => tools.status?.tools.find((t) => t.id === id);
   const missingServers = SERVERS.filter(
@@ -268,7 +254,7 @@ export function CodeEditorSettingsPage() {
       <Group
         id="ai-suggestions"
         title="AI suggestions"
-        description="Grey inline suggestions while you type. Tab accepts, Esc dismisses. Uses your own Anthropic API key and is billed to it per request."
+        description="Grey inline suggestions while you type. Tab accepts, Esc dismisses. Runs through your Claude Code sign-in, the same way MonoCode writes session titles and commit messages, so no API key is needed. Each suggestion counts toward your Claude plan usage."
       >
         <Row label="AI inline suggestions">
           <Toggle
@@ -278,57 +264,6 @@ export function CodeEditorSettingsPage() {
               updateCodeIntel((s) => ({ ...s, ai: { ...s.ai, enabled: v } }))
             }
           />
-        </Row>
-        <Row
-          label="Anthropic API key"
-          description={
-            keyError ??
-            (keyStatus?.fromEnv
-              ? "Using ANTHROPIC_API_KEY from the environment."
-              : keyStatus?.saved
-                ? "Saved in your system keychain."
-                : "Create one at console.anthropic.com. It is stored in your system keychain, never in a file.")
-          }
-        >
-          {keyStatus?.saved ? (
-            <SmallButton
-              danger
-              onClick={() =>
-                void invoke("ai_set_key", { key: null }).then(refreshKey, (e) =>
-                  setKeyError(String(e)),
-                )
-              }
-            >
-              Remove key
-            </SmallButton>
-          ) : (
-            <>
-              <input
-                type="password"
-                value={key}
-                placeholder="sk-ant-…"
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(e) => setKey(e.target.value)}
-                className="w-48 rounded-md border border-content/12 bg-transparent px-2 py-1 text-[12px] text-content outline-none focus:border-accent"
-              />
-              <SmallButton
-                disabled={!key.trim()}
-                onClick={() =>
-                  void invoke("ai_set_key", { key }).then(
-                    () => {
-                      setKey("");
-                      setKeyError(null);
-                      refreshKey();
-                    },
-                    (e) => setKeyError(String(e)),
-                  )
-                }
-              >
-                Save
-              </SmallButton>
-            </>
-          )}
         </Row>
         <Row
           label="Model"
@@ -351,9 +286,9 @@ export function CodeEditorSettingsPage() {
             label="Wait after typing"
             value={String(settings.ai.debounceMs)}
             options={[
-              { value: "250", label: "Short" },
-              { value: "400", label: "Normal" },
-              { value: "800", label: "Long" },
+              { value: "400", label: "Short" },
+              { value: "700", label: "Normal" },
+              { value: "1200", label: "Long" },
             ]}
             onChange={(v) =>
               updateCodeIntel((s) => ({
