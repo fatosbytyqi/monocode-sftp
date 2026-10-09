@@ -235,9 +235,11 @@ import { ProviderAccountSubtitle } from "../../providers/ui/ProviderAccountSubti
 import {
   saveComposerAutocorrect,
   saveMaskEmails,
+  saveRailMonosPinned,
   saveShowRemainingUsage,
   useComposerAutocorrect,
   useMaskEmails,
+  useRailMonosPinned,
   useShowRemainingUsage,
 } from "../model/displayPrefs";
 import {
@@ -4006,6 +4008,7 @@ function MonosPage() {
     loadMonoMenuBarIcon,
     () => true,
   );
+  const railPinned = useRailMonosPinned();
   const snapshot = useSyncExternalStore(subscribeMonos, monosSnapshot);
   const monos = useMemo(() => listMonos(), [snapshot]);
 
@@ -4018,6 +4021,18 @@ function MonosPage() {
           description="Agents of your own on the project rail. Each works on the projects you give it, remembers what matters and picks up habits it runs on its own. Turn this off to hide them."
         >
           <Toggle label="Show monos" on={enabled} onChange={saveMonosEnabled} />
+        </Row>
+        <Row
+          id="rail-monos-pinned"
+          label="Pin monos to the icon rail"
+          description="When the project rail is collapsed to icons, show each Mono at the top of the rail, above a divider, instead of inside the project picker."
+        >
+          <Toggle
+            label="Pin monos to the icon rail"
+            on={railPinned}
+            onChange={saveRailMonosPinned}
+            disabled={!enabled}
+          />
         </Row>
         {IS_MAC && (
           <Row
