@@ -8,9 +8,11 @@ import {
   ImagePlus,
   Pin,
   PinOff,
+  Server,
   Settings,
   Trash2,
 } from "../../shared/ui/icons";
+import { SftpSetupDialog } from "../../features/sftp/ui/SftpSetupDialog";
 import {
   basename,
   listExternalEditors,
@@ -22,6 +24,7 @@ import { IS_MAC, IS_WIN } from "../../platform/tauri/platform";
 import { projectKey, projectName } from "../../shared/lib/paths";
 import {
   loadPinnedProjects,
+  isRemoteProjectPath,
   sameProjectPath,
   subscribeProjectPathsChanged,
   toggleProjectPin,
@@ -91,6 +94,7 @@ function projectMenuExtraItems(
   externalEditors: ExternalEditor[] | null,
   projectGroups: ProjectGroup[],
   currentProjectGroupId?: string,
+  canSetupSftp = false,
 ): TabGroupMenuExtraItem[] {
   const groupSubmenu: ExplorerMenuItem[] = [
     { kind: "item", id: "project-group:new", label: "New group…" },
@@ -155,6 +159,9 @@ function projectMenuExtraItems(
                 },
               ],
     },
+    ...(canSetupSftp
+      ? [{ id: "sftp-setup", label: "Setup SFTP…", icon: Server }]
+      : []),
     {
       id: "notifications-mute",
       label: "Mute notifications",
@@ -218,6 +225,10 @@ export function useProjectMenu({
     name: string;
   } | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
+  const [sftpProject, setSftpProject] = useState<{
+    path: string;
+    name: string;
+  } | null>(null);
   const [externalEditors, setExternalEditors] = useState<
     ExternalEditor[] | null
   >(null);
@@ -318,6 +329,7 @@ export function useProjectMenu({
     close();
     setRemoving(null);
     setBackgroundProject(null);
+    setSftpProject(null);
   };
 
   const groupLabels = projectMenu ? loadTabGroupLabels() : {};
@@ -375,6 +387,11 @@ export function useProjectMenu({
     } else if (action === "background") {
       setBackgroundProject({
         project: key,
+        name: resolveTabGroupLabel(key, groupLabels, basename(path)),
+      });
+    } else if (action === "sftp-setup") {
+      setSftpProject({
+        path,
         name: resolveTabGroupLabel(key, groupLabels, basename(path)),
       });
     } else if (action === "reveal") void revealPath(path);
@@ -449,6 +466,7 @@ export function useProjectMenu({
             projectMenu.path,
             loadProjectGroupAssignments(),
           ),
+          !isRemoteProjectPath(projectMenu.path),
         )}
         footer={
           menuError ? (
@@ -574,6 +592,16 @@ export function useProjectMenu({
           }}
         />
       ) : null}
+      {sftpProject ? (
+        <SftpSetupDialog
+          workspace={sftpProject.path}
+          projectName={sftpProject.name}
+          onClose={() => {
+            setSftpProject(null);
+            restoreFocus();
+          }}
+        />
+      ) : null}
       {backgroundProject ? (
         <ProjectBackgroundDialog
           project={backgroundProject.project}
@@ -600,7 +628,8 @@ export function useProjectMenu({
       groupMenu != null ||
       notificationMenu != null ||
       removing != null ||
-      backgroundProject != null,
+      backgroundProject != null ||
+      sftpProject != null,
     element,
   };
 }

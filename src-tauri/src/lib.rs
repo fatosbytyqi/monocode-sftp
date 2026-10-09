@@ -43,6 +43,7 @@ mod remote;
 mod remote_ssh;
 mod search;
 mod session_store;
+mod sftp;
 mod skills;
 pub mod ssh_askpass;
 #[cfg(target_os = "macos")]
@@ -243,6 +244,7 @@ pub fn run() {
         .manage(harness::HarnessHost::new())
         .manage(pty::PtyHost::new())
         .manage(remote::RemoteConnections::default())
+        .manage(sftp::SftpState::default())
         .manage(window_transfer::WindowTransferState::new())
         .setup(|app| {
             harness::reap_orphaned_harness_processes();
@@ -275,6 +277,29 @@ pub fn run() {
             menu::dispatch(app, event.id().as_ref());
         })
         .invoke_handler(tauri::generate_handler![
+            sftp::sftp_configs,
+            sftp::sftp_init_config,
+            sftp::sftp_set_profile,
+            sftp::sftp_upload,
+            sftp::sftp_download,
+            sftp::sftp_download_remote,
+            sftp::sftp_sync,
+            sftp::sftp_list,
+            sftp::sftp_delete_remote,
+            sftp::sftp_remote_create,
+            sftp::sftp_remote_rename,
+            sftp::sftp_open_remote,
+            sftp::sftp_diff,
+            sftp::sftp_on_save,
+            sftp::sftp_on_open,
+            sftp::sftp_workspace_of,
+            sftp::sftp_cancel_all,
+            sftp::sftp_disconnect_all,
+            sftp::sftp_ssh_command,
+            sftp::sftp_prompt_reply,
+            sftp::sftp_read_raw,
+            sftp::sftp_write_raw,
+            sftp::sftp_test_connection,
             remote::remote_machines,
             remote::remote_connect,
             remote::remote_disconnect,

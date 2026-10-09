@@ -39,6 +39,8 @@ Windows (x86_64): download the NSIS installer from [GitHub Releases](https://git
 
 ## Some notes
 
+SFTP / FTP deployment: upload on save, a Remote Explorer, folder sync, diff with the server, profiles and jump hosts, configured with an existing `.vscode/sftp.json` (the VS Code SFTP extension's format) or a new `.monocode/sftp.json`. See [SFTP / FTP deployment](docs/sftp.md).
+
 Experimental remote sessions: run agents on an always-on Windows, Linux, or macOS machine and connect from the desktop. See [remote access setup and current limitations](docs/remote-access.md).
 
 This is very early and you should expect bugs.

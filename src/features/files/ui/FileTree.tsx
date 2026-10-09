@@ -70,6 +70,11 @@ import {
 } from "../../../shared/lib/drag";
 import { ExplorerMenu, type ExplorerMenuItem } from "./ExplorerMenu";
 import { FileTypeIcon } from "./FileTypeIcon";
+import {
+  runExplorerAction,
+  SFTP_EXPLORER_ACTIONS,
+  useSftpConfigs,
+} from "../../sftp/model/sftp";
 
 const GIT_STATUS_COLOR: Record<string, string> = {
   modified: "text-amber-400",
@@ -171,6 +176,7 @@ function explorerItems(
   target: MenuTarget,
   clip: Clip | null,
   canOpenTerminal: boolean,
+  sftp = false,
 ): ExplorerMenuItem[] {
   const pasteParent = target.isDir ? target.path : parentPath(target.path);
   const pasteBlocked =
@@ -242,6 +248,26 @@ function explorerItems(
         ]
       : []),
     { kind: "item", id: "reveal", label: REVEAL_LABEL },
+    ...(sftp
+      ? [
+          { kind: "sep" as const },
+          {
+            kind: "item" as const,
+            id: "sftp",
+            label: "SFTP",
+            submenu: SFTP_EXPLORER_ACTIONS.filter(
+              (a) =>
+                !("fileOnly" in a && a.fileOnly && target.isDir) &&
+                !("dirOnly" in a && a.dirOnly && !target.isDir),
+            ).map((a) => ({
+              kind: "item" as const,
+              id: a.id,
+              label: a.label,
+              danger: "danger" in a ? a.danger : undefined,
+            })),
+          },
+        ]
+      : []),
   ];
 }
 
@@ -258,6 +284,7 @@ export const FileTree = memo(function FileTree({
   gitStatuses,
 }: Props) {
   const [expanded, setExpanded] = useState(() => loadExpanded(cwd));
+  const sftp = useSftpConfigs(cwd);
   const [selectedPath, setSelectedPath] = useState(() => loadSelected(cwd));
   const [children, setChildren] = useState<FsEntry[] | null>(() =>
     peekDir(cwd),
@@ -688,6 +715,9 @@ export const FileTree = memo(function FileTree({
         onOpenTerminal?.(target.isDir ? target.path : parentPath(target.path));
         return;
     }
+    if (id.startsWith("sftp:")) {
+      await runExplorerAction(id, cwd, target.path, target.isDir);
+    }
   };
 
   const onItemContextMenu = (
@@ -1102,7 +1132,12 @@ export const FileTree = memo(function FileTree({
         <ExplorerMenu
           x={menu.x}
           y={menu.y}
-          items={explorerItems(menu.target, clip, !!onOpenTerminal)}
+          items={explorerItems(
+            menu.target,
+            clip,
+            !!onOpenTerminal,
+            !!sftp?.configs.length,
+          )}
           onPick={(id) => {
             const target = menu.target;
             setMenu(null);

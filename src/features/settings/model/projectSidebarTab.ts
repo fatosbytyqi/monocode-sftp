@@ -7,7 +7,12 @@ type ProjectSidebarTab = Exclude<SidebarTabId, "inbox">;
 type StoredTabs = Record<string, ProjectSidebarTab>;
 
 function isProjectSidebarTab(value: unknown): value is ProjectSidebarTab {
-  return value === "sessions" || value === "files" || value === "changes";
+  return (
+    value === "sessions" ||
+    value === "files" ||
+    value === "changes" ||
+    value === "sftp"
+  );
 }
 
 function readAll(): StoredTabs {

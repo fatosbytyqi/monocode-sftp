@@ -70,6 +70,12 @@ import {
 } from "../features/orchestration/ui/OrchestrationActions";
 import { flushSync } from "react-dom";
 import { listen } from "@tauri-apps/api/event";
+import { SftpHost } from "../features/sftp/ui/SftpHost";
+import {
+  OPEN_TERMINAL_COMMAND_EVENT,
+  setStartupCommand,
+  type OpenTerminalCommandDetail,
+} from "../features/terminal/model/startupCommand";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, message } from "@tauri-apps/plugin-dialog";
 import {
@@ -2955,6 +2961,25 @@ function Workspace({
   const onNewTerminal = useCallback(() => {
     onOpenTerminal(terminalCwd);
   }, [terminalCwd, onOpenTerminal]);
+
+  // "Open SSH in Terminal" from the SFTP panel: a new terminal tab running a command.
+  useEffect(() => {
+    const onCommand = (event: Event) => {
+      const { cwd, command, title } = (
+        event as CustomEvent<OpenTerminalCommandDetail>
+      ).detail;
+      if (!isLocalProject(cwd)) return;
+      const file = newTerminalFile(cwd, title, sidebarCwd);
+      setStartupCommand(file.id, command);
+      const tab = newTerminalWorkspaceTab(file);
+      appendTab(tab, sidebarCwd);
+      setActiveTabId(tab.id);
+      setComposerFocused(false);
+    };
+    window.addEventListener(OPEN_TERMINAL_COMMAND_EVENT, onCommand);
+    return () =>
+      window.removeEventListener(OPEN_TERMINAL_COMMAND_EVENT, onCommand);
+  }, [appendTab, sidebarCwd]);
 
   const onShowProjectTerminal = useCallback(() => {
     leaveCoveringMono();
@@ -13096,6 +13121,7 @@ function Workspace({
             }
             onHeightChange={setHarnessUpdateHeight}
           />
+          <SftpHost />
           <ApprovalToasts
             notices={hiddenApprovalToasts}
             topOffset={

@@ -56,6 +56,14 @@ import {
   type GitFileDiffKind,
 } from "../../../platform/tauri/fs";
 import { syncWatchedMtime, watchFile } from "../model/fileWatch";
+import {
+  report,
+  sftpDownload,
+  sftpOnOpen,
+  sftpOnSave,
+  sftpSupported,
+  sftpWorkspaceOf,
+} from "../../sftp/model/sftp";
 import { displayPath } from "../../../shared/lib/paths";
 import type { EditorNavigation } from "../../search/model/search";
 import { MarkdownDocumentPreview } from "../../sessions/ui/MarkdownDocumentPreview";
@@ -335,6 +343,32 @@ export function FileEditor({
     };
   }, [loadState.status, path, reloadFromDisk]);
 
+  // SFTP downloadOnOpen: refresh the file from the server when it opens.
+  useEffect(() => {
+    if (!cwd || cwd === "~" || !sftpSupported(cwd)) return;
+    let cancelled = false;
+    void (async () => {
+      const mode = await sftpOnOpen(path).catch(() => "off" as const);
+      if (cancelled || mode === "off") return;
+      if (mode === "confirm") {
+        const { ask } = await import("@tauri-apps/plugin-dialog");
+        const ok = await ask(`Download ${basename(path)} from the server?`, {
+          title: "Download on open",
+        });
+        if (!ok || cancelled) return;
+      }
+      const workspace = await sftpWorkspaceOf(path);
+      if (!workspace || cancelled) return;
+      const summary = await report(sftpDownload(workspace, [path]));
+      if (summary?.downloaded && !cancelled) void reloadFromDisk();
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Only when a different file opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path]);
+
   const save = useCallback(
     async (content: string) => {
       const generation = ++saveGeneration.current;
@@ -348,6 +382,7 @@ export function FileEditor({
         await operation;
         await syncWatchedMtime(path);
         notifyGitChanged();
+        void report(sftpOnSave(path));
         if (generation === saveGeneration.current) {
           setSaveState({ status: "saved" });
         }

@@ -35,6 +35,15 @@ time = { version = "0.3", features = ["parsing"] }
 tauri-plugin-process = "2"
 arboard = { version = "3.6", features = ["wayland-data-control"] }
 png = "0.18"
+globset = "0.4"
+ignore = "0.4"
+notify = "8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util", "net"] }
+tokio-util = "0.7"
+ssh2-config = "0.8"
+russh = { version = "0.64", default-features = false, features = ["ring", "flate2", "rsa"] }
+russh-sftp = "3"
+suppaftp = { version = "12", features = ["tokio", "tokio-async-native-tls", "deprecated"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

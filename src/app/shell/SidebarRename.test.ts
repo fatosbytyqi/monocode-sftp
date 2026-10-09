@@ -856,7 +856,7 @@ describe("sidebar reorder affordances", () => {
     act(() => render());
 
     const tabs = container.querySelectorAll<HTMLElement>('[role="tab"]');
-    expect(tabs).toHaveLength(3);
+    expect(tabs).toHaveLength(4);
     for (const tab of tabs) {
       expect(tab.className).not.toContain("cursor-grab");
       expect(tab.parentElement?.className).not.toContain("cursor-grab");
@@ -1616,6 +1616,7 @@ describe("collapsed rail Inbox actions", () => {
       "Sessions",
       "Explorer",
       "Changes",
+      "Remote",
       "Search",
       "Inbox",
       "Notes",
@@ -1630,7 +1631,7 @@ describe("collapsed rail Inbox actions", () => {
       Array.from(workspaceTabs.querySelectorAll('[role="tab"]'), (button) =>
         button.getAttribute("aria-label"),
       ),
-    ).toEqual(["Sessions", "Explorer", "Changes"]);
+    ).toEqual(["Sessions", "Explorer", "Changes", "Remote"]);
     const sessionsTab = workspaceTabs.querySelector<HTMLButtonElement>(
       '[aria-label="Sessions"]',
     )!;

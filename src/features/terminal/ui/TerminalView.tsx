@@ -8,6 +8,7 @@ import {
   subscribePty,
   writePty,
 } from "../../../platform/tauri/pty";
+import { takeStartupCommand } from "../model/startupCommand";
 import { isOscColorQuery, oscColorReply } from "../model/terminalChrome";
 import {
   isMacTerminalClearShortcut,
@@ -255,7 +256,10 @@ export function TerminalView({ id, cwd, active, onMetaChange }: Props) {
         },
       );
       didStart = true;
-      return spawnPty(id, cwd, term.cols, term.rows);
+      return spawnPty(id, cwd, term.cols, term.rows).then(() => {
+        const command = takeStartupCommand(id);
+        if (command && !closed) void writePty(id, `${command}\r`);
+      });
     };
 
     const starting = (stoppingPtys.get(id) ?? Promise.resolve())

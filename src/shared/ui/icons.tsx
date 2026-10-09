@@ -28,6 +28,10 @@ import ChartBreakoutSquareIcon from "@hugeicons/core-free-icons/ChartBreakoutSqu
 import CircleDashedIcon from "@hugeicons/core-free-icons/CircleDashedIcon";
 import CircleDotIcon from "@hugeicons/core-free-icons/CircleDotIcon";
 import CloudUploadIcon from "@hugeicons/core-free-icons/CloudUploadIcon";
+import CloudDownloadIcon from "@hugeicons/core-free-icons/CloudDownloadIcon";
+import ArrowDataTransferHorizontalIcon from "@hugeicons/core-free-icons/ArrowDataTransferHorizontalIcon";
+import Unlink01Icon from "@hugeicons/core-free-icons/Unlink01Icon";
+import ServerStack01Icon from "@hugeicons/core-free-icons/ServerStack01Icon";
 import Clock01Icon from "@hugeicons/core-free-icons/Clock01Icon";
 import ColorPickerIcon from "@hugeicons/core-free-icons/ColorPickerIcon";
 import Comment01Icon from "@hugeicons/core-free-icons/Comment01Icon";
@@ -183,6 +187,10 @@ export const CircleDot = wrap(CircleDotIcon, "CircleDot");
 export const CircleHelp = wrap(HelpCircleIcon, "CircleHelp");
 export const CircleX = wrap(CancelCircleIcon, "CircleX");
 export const CloudUpload = wrap(CloudUploadIcon, "CloudUpload");
+export const CloudDownload = wrap(CloudDownloadIcon, "CloudDownload");
+export const ArrowLeftRight = wrap(ArrowDataTransferHorizontalIcon, "ArrowLeftRight");
+export const Unlink = wrap(Unlink01Icon, "Unlink");
+export const Server = wrap(ServerStack01Icon, "Server");
 export const Clock = wrap(Clock01Icon, "Clock");
 export const Copy = wrap(Copy01Icon, "Copy");
 export const CursorMagicSelection = wrap(

@@ -20,6 +20,7 @@ import {
   FileScript,
   Folder,
   GitBranch,
+  Server,
   GitPullRequest,
   Inbox,
   ListFilter,
@@ -32,6 +33,7 @@ import {
   StickyNote,
   Zap,
 } from "../../shared/ui/icons";
+import { SftpPanel } from "../../features/sftp/ui/SftpPanel";
 import {
   memo,
   useEffect,
@@ -210,6 +212,7 @@ const TAB_LABELS: Record<SidebarTab, string> = {
   inbox: "Inbox",
   files: "Explorer",
   changes: "Changes",
+  sftp: "Remote",
 };
 
 const COMPACT_TAB_ICONS: Record<SidebarTab, typeof PanelLeft> = {
@@ -217,6 +220,7 @@ const COMPACT_TAB_ICONS: Record<SidebarTab, typeof PanelLeft> = {
   inbox: Inbox,
   files: FileScript,
   changes: GitBranch,
+  sftp: Server,
 };
 
 function projectPathBusy(
@@ -743,11 +747,15 @@ function SidebarComponent({
   const sessionListKey = `${cwd}\0${sessionFilters.showArchived}\0${sessionFilters.time}\0${sessionFilters.hiddenHarnesses.join(",")}\0${sessionFilters.status.working}\0${sessionFilters.status.needsApproval}\0${sessionFilters.status.done}\0${searchQuery}`;
   const sessionHarnesses = harnessesInSessions(projectSessions);
   const narrowedByUser = searchNarrowed || filtersActive;
-  const visibleTabs = tabOrder.filter((itemId) => itemId !== "inbox");
+  const visibleTabs = tabOrder.filter(
+    (itemId) => itemId !== "inbox" && !(itemId === "sftp" && remoteProject),
+  );
   const sortable = useAnimatedReorder(visibleTabs, (ids) => {
     let index = 0;
     const next = tabOrder.map((itemId) =>
-      itemId === "inbox" ? itemId : ids[index++],
+      itemId === "inbox" || (itemId === "sftp" && remoteProject)
+        ? itemId
+        : ids[index++],
     );
     setTabOrder(next);
     saveSidebarTabOrder(next);
@@ -2098,6 +2106,11 @@ function SidebarComponent({
             </div>
           )}
         </div>
+        {tab === "sftp" && cwd && cwd !== "~" && !remoteProject ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <SftpPanel cwd={cwd} onOpenFile={onOpenFile} />
+          </div>
+        ) : null}
         {tab === "changes" ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <SourceControl
