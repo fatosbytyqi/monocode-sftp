@@ -396,8 +396,13 @@ pub fn bootstrap_script(platform: HostPlatform) -> String {
     bootstrap_script_from_template(platform, template)
 }
 
+/// Upstream MonoCode release whose remote host package this build uses.
+pub const UPSTREAM_HOST_VERSION: &str = "0.10.0";
+
 fn bootstrap_script_from_template(platform: HostPlatform, template: &str) -> String {
-    let version = env!("CARGO_PKG_VERSION");
+    // MonoCode SFTP has its own version line; remote hosts still come from the
+    // upstream MonoCode release this fork is based on. Bump when merging upstream.
+    let version = UPSTREAM_HOST_VERSION;
     let url = format!("https://github.com/hardbeat920/monocode/releases/download/v{version}");
     match platform {
         // include_str! preserves checkout line endings, including Windows CRLF.

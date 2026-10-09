@@ -2,7 +2,23 @@
   <img src="public/monocode.png" alt="MonoCode" width="88" />
 </p>
 
-<h1 align="center">MonoCode</h1>
+<h1 align="center">MonoCode SFTP</h1>
+
+> **MonoCode SFTP** is a fork of [MonoCode](https://github.com/hardbeat920/monocode) with built-in SFTP / FTP deployment
+> (see [docs/sftp.md](docs/sftp.md)). Downloads: [Releases](https://github.com/fatosbytyqi/monocode-sftp/releases/latest).
+> Installed copies update themselves from this repository's releases.
+>
+> **Releasing a new version**
+>
+> ```bash
+> npm run set-version -- 1.0.1
+> git commit -am "Release 1.0.1" && git tag v1.0.1 && git push && git push --tags
+> ```
+>
+> GitHub Actions builds macOS (Apple Silicon) and Windows, signs the update and publishes the release.
+>
+> **Getting upstream MonoCode changes:** `git fetch upstream && git merge upstream/main`, then bump
+> `UPSTREAM_HOST_VERSION` in `src-tauri/src/remote_ssh.rs` to the upstream version you merged.
 
 <p align="center">
   <strong>A desktop UI for your coding agents.</strong>

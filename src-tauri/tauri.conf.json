@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MonoCode",
-  "version": "0.10.0",
-  "identifier": "com.monocode.desktop",
+  "productName": "MonoCode SFTP",
+  "version": "1.0.0",
+  "identifier": "com.monocode.sftp",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "MonoCode",
+        "title": "MonoCode SFTP",
         "width": 1280,
         "height": 800,
         "minWidth": 800,
@@ -30,7 +30,9 @@
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob: https://avatars.githubusercontent.com https://uploads.linear.app https://lh3.googleusercontent.com; font-src 'self' data:; connect-src ipc: http://ipc.localhost https://ipc.localhost asset: http://asset.localhost https://asset.localhost; media-src 'self' asset: http://asset.localhost https://asset.localhost blob:; object-src 'none'; base-uri 'self'; frame-src 'none'",
       "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob: https://avatars.githubusercontent.com https://uploads.linear.app https://lh3.googleusercontent.com; font-src 'self' data:; connect-src ipc: http://ipc.localhost https://ipc.localhost asset: http://asset.localhost https://asset.localhost http://localhost:1420 ws://localhost:1420 http://127.0.0.1:1420 ws://127.0.0.1:1420; media-src 'self' asset: http://asset.localhost https://asset.localhost blob:; object-src 'none'; base-uri 'self'; frame-src 'none'",
-      "dangerousDisableAssetCspModification": ["style-src"],
+      "dangerousDisableAssetCspModification": [
+        "style-src"
+      ],
       "assetProtocol": {
         "enable": true,
         "scope": [
@@ -71,8 +73,10 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
-      "endpoints": []
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQzNTk5OEEzOTVDQzIwQjUKUldTMUlNeVZvNWhaMDdwaUg0SUN3dXppZisyRzhRbHNsVWlGN1pjZWo5WmtrTDErdkpIeitHd0IK",
+      "endpoints": [
+        "https://github.com/fatosbytyqi/monocode-sftp/releases/latest/download/latest.json"
+      ]
     }
   }
 }
