@@ -47,7 +47,7 @@ export const DEFAULT_CODE_INTEL: CodeIntelSettings = {
     enabled: false,
     provider: "auto",
     model: "auto",
-    debounceMs: 700,
+    debounceMs: 500,
   },
   compile: {
     scss: false,
@@ -79,10 +79,14 @@ function migrateAi(
   ai: CodeIntelSettings["ai"],
   saved: Partial<CodeIntelSettings["ai"]> | undefined,
 ): CodeIntelSettings["ai"] {
+  let next = ai;
   if (saved && !saved.provider && saved.model && saved.model !== "auto") {
-    return { ...ai, provider: "claude" };
+    next = { ...next, provider: "claude" };
   }
-  return ai;
+  if (![300, 500, 900].includes(next.debounceMs)) {
+    next = { ...next, debounceMs: 500 };
+  }
+  return next;
 }
 
 let cached: CodeIntelSettings | null = null;

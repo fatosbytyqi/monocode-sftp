@@ -5,6 +5,7 @@ import {
   StateField,
   type Extension,
   type Text,
+  type Transaction,
 } from "@codemirror/state";
 import {
   Decoration,
@@ -15,7 +16,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { completeWithAgent } from "../model/aiComplete";
+import { completeWithAgent, prewarmCompletions } from "../model/aiComplete";
 
 type Ghost = { pos: number; text: string; doc: Text; pending?: boolean };
 
@@ -43,11 +44,33 @@ class GhostWidget extends WidgetType {
   }
 }
 
+/**
+ * Typing the same characters the suggestion starts with keeps the rest of it
+ * on screen instead of asking again.
+ */
+function typedIntoGhost(ghost: Ghost, tr: Transaction): Ghost | null {
+  if (ghost.pending || !tr.isUserEvent("input.type")) return null;
+  let inserted: string | null = null;
+  let valid = true;
+  tr.changes.iterChanges((fromA, toA, _fromB, _toB, text) => {
+    if (inserted !== null || fromA !== ghost.pos || toA !== fromA)
+      valid = false;
+    inserted = text.toString();
+  });
+  const typed = inserted as string | null;
+  if (!valid || !typed || !ghost.text.startsWith(typed)) return null;
+  const rest = ghost.text.slice(typed.length);
+  if (!rest) return null;
+  return { pos: ghost.pos + typed.length, text: rest, doc: tr.newDoc };
+}
+
 const ghostField = StateField.define<Ghost | null>({
   create: () => null,
   update(value, tr) {
     for (const e of tr.effects) if (e.is(setGhost)) return e.value;
-    if (tr.docChanged || tr.selection) return null;
+    if (!value) return null;
+    if (tr.docChanged) return typedIntoGhost(value, tr);
+    if (tr.selection) return null;
     return value;
   },
   provide: (field) =>
@@ -100,7 +123,10 @@ export function aiInline(options: AiInlineOptions): Extension {
       timer = 0;
       request = 0;
       inFlight: AbortController | null = null;
-      constructor(readonly view: EditorView) {}
+      constructor(readonly view: EditorView) {
+        // Start the agent now so the first suggestion is already warm.
+        prewarmCompletions(options.provider, options.model, options.cwd);
+      }
       update(update: ViewUpdate) {
         const typed = update.transactions.some(
           (tr) =>
@@ -111,6 +137,8 @@ export function aiInline(options: AiInlineOptions): Extension {
         this.request++;
         this.cancel();
         if (!typed) return;
+        // The user is typing along a suggestion that is still on screen.
+        if (update.state.field(ghostField, false)) return;
         this.timer = window.setTimeout(
           () => void this.ask(),
           options.debounceMs,
@@ -144,6 +172,12 @@ export function aiInline(options: AiInlineOptions): Extension {
             suffix: doc.sliceString(pos),
             model: options.model,
             signal: controller.signal,
+            onPartial: (partial) => {
+              if (id !== this.request || this.view.state.doc !== doc) return;
+              this.view.dispatch({
+                effects: setGhost.of({ pos, text: partial, doc }),
+              });
+            },
           });
           if (this.inFlight === controller) this.inFlight = null;
           if (id !== this.request || this.view.state.doc !== doc) return;
@@ -199,3 +233,15 @@ export function aiInline(options: AiInlineOptions): Extension {
     }),
   ];
 }
+
+/** Test hooks. */
+export const __test = {
+  show(view: EditorView, text: string) {
+    const pos = view.state.selection.main.head;
+    view.dispatch({ effects: setGhost.of({ pos, text, doc: view.state.doc }) });
+  },
+  ghost(view: EditorView): string | null {
+    return view.state.field(ghostField, false)?.text ?? null;
+  },
+  accept,
+};

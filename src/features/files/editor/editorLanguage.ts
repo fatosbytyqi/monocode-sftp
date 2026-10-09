@@ -2,11 +2,16 @@ import {
   HighlightStyle,
   LanguageSupport,
   StreamLanguage,
+  syntaxHighlighting,
+  type Language,
   type StreamParser,
 } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { tagHighlighter, tags, type Highlighter } from "@lezer/highlight";
-import type { ColorScheme } from "../../settings/model/appearance";
+import {
+  isLightScheme,
+  type ColorScheme,
+} from "../../settings/model/appearance";
 import { basename } from "../../../platform/tauri/fs";
 
 const HIGHLIGHT_TAGS = {
@@ -45,7 +50,7 @@ const HIGHLIGHT_TAGS = {
     tags.tagName,
     tags.standard(tags.typeName),
   ],
-  number: [tags.number, tags.integer, tags.float],
+  number: [tags.number, tags.integer, tags.float, tags.color],
   comment: [tags.comment, tags.lineComment, tags.blockComment, tags.docComment],
   property: [tags.propertyName, tags.attributeName],
   meta: [tags.meta, tags.processingInstruction, tags.annotation],
@@ -139,6 +144,30 @@ export function syntaxTagHighlighter(scheme: ColorScheme): Highlighter {
   ]);
 }
 
+/**
+ * Stylesheet variables (`--x`, SCSS `$x`, Less `@x`) use the plain
+ * variableName tag, which the shared theme leaves uncolored on purpose so
+ * JS/PHP identifiers stay quiet. Color them inside stylesheets only.
+ */
+function stylesheetVariables(language: Language): Extension {
+  const color = HIGHLIGHT_PALETTE[isLightScheme() ? "light" : "dark"].property;
+  return syntaxHighlighting(
+    HighlightStyle.define(
+      [
+        {
+          tag: [
+            tags.variableName,
+            tags.special(tags.variableName),
+            tags.definition(tags.variableName),
+          ],
+          color,
+        },
+      ],
+      { scope: language },
+    ),
+  );
+}
+
 function legacyLanguage(parser: StreamParser<unknown>): Extension {
   return StreamLanguage.define(parser);
 }
@@ -165,7 +194,18 @@ export async function languageForPath(path: string): Promise<Extension | null> {
   }
   if (extension === ".css") {
     const { css } = await import("@codemirror/lang-css");
-    return css();
+    const support = css();
+    return [support, stylesheetVariables(support.language)];
+  }
+  if (extension === ".scss" || extension === ".sass") {
+    const { sass } = await import("@codemirror/lang-sass");
+    const support = sass({ indented: extension === ".sass" });
+    return [support, stylesheetVariables(support.language)];
+  }
+  if (extension === ".less") {
+    const { less } = await import("@codemirror/lang-less");
+    const support = less();
+    return [support, stylesheetVariables(support.language)];
   }
   if ([".html", ".htm"].includes(extension)) {
     const { html } = await import("@codemirror/lang-html");

@@ -8,11 +8,12 @@ import type { HarnessEvent } from "../../../integrations/harness/core/types";
 import { modelsFor, nativeModelId } from "../../sessions/model/models";
 import { HARNESSES, type HarnessId } from "../../sessions/model/session";
 
-const PREFIX_CHARS = 6000;
-const SUFFIX_CHARS = 2000;
+// Enough for the surrounding function; smaller prompts answer faster.
+const PREFIX_CHARS = 3000;
+const SUFFIX_CHARS = 1000;
 const TIMEOUT_MS = 45_000;
 /** Start a fresh conversation after this many suggestions, so history stays small. */
-const RECYCLE_AFTER = 8;
+const RECYCLE_AFTER = 15;
 /** Shut the warm backend down after this long without suggestions. */
 const IDLE_MS = 3 * 60_000;
 
@@ -52,10 +53,23 @@ export function buildCompletionPrompt(
   ].join("\n");
 }
 
+/** Text inside <insert>, also while it is still streaming (no closing tag yet). */
+export function partialInsert(output: string): string | null {
+  const start = output.indexOf("<insert>");
+  if (start < 0) return null;
+  const rest = output.slice(start + "<insert>".length);
+  const end = rest.indexOf("</insert>");
+  if (end >= 0) return rest.slice(0, end);
+  // Hold back a possibly incomplete closing tag.
+  const cut = rest.lastIndexOf("<");
+  return cut >= 0 && "</insert>".startsWith(rest.slice(cut))
+    ? rest.slice(0, cut)
+    : rest;
+}
+
 /** Text between <insert> tags, with any echo of the current line removed. */
 export function parseCompletion(output: string, prefix: string): string {
-  const match = /<insert>([\s\S]*?)<\/insert>/.exec(output);
-  let text = match ? match[1]! : "";
+  let text = partialInsert(output) ?? "";
   if (/^\s*```/.test(text)) {
     text = text.replace(/^\s*```[^\n]*\n?/, "").replace(/\n?```\s*$/, "");
   }
@@ -137,6 +151,7 @@ async function promptViaHiddenSession(input: {
   model: string;
   prompt: string;
   signal?: AbortSignal;
+  onDelta?: (output: string) => void;
 }): Promise<string> {
   const adapter = getHarness(input.harness);
   if (!adapter) throw new Error(`${input.harness} is not available`);
@@ -150,6 +165,7 @@ async function promptViaHiddenSession(input: {
     switch (event.type) {
       case "message.delta":
         output += event.text;
+        input.onDelta?.(output);
         break;
       case "approval.requested":
         // Completions never run tools.
@@ -205,6 +221,8 @@ export async function completeWithAgent(input: {
   prefix: string;
   suffix: string;
   signal?: AbortSignal;
+  /** The suggestion so far, while the agent is still writing it. */
+  onPartial?: (text: string) => void;
 }): Promise<string> {
   const harness = resolveCompletionProvider(input.provider);
   if (!harness) {
@@ -216,8 +234,20 @@ export async function completeWithAgent(input: {
     throw new Error(`${harness} is not installed or not signed in`);
   }
   const prompt = buildCompletionPrompt(input.path, input.prefix, input.suffix);
+  let streamed = "";
+  const onDelta = (output: string) => {
+    if (!input.onPartial) return;
+    const partial = partialInsert(output);
+    if (partial == null) return;
+    const text = parseCompletion(`<insert>${partial}</insert>`, input.prefix);
+    if (text && text !== streamed) {
+      streamed = text;
+      input.onPartial(text);
+    }
+  };
   const model = resolveModel(harness, input.model);
   if (canRunHarnessTextPrompt(harness)) touchWarm(harness);
+  let deltas = "";
   const output = canRunHarnessTextPrompt(harness)
     ? await runHarnessTextPrompt({
         harness,
@@ -233,6 +263,12 @@ export async function completeWithAgent(input: {
         prompt,
         timeoutMs: TIMEOUT_MS,
         signal: input.signal,
+        onEvent: (event) => {
+          if (event.type === "message.delta") {
+            deltas += event.text;
+            onDelta(deltas);
+          }
+        },
       })
     : await promptViaHiddenSession({
         harness,
@@ -240,6 +276,36 @@ export async function completeWithAgent(input: {
         model,
         prompt,
         signal: input.signal,
+        onDelta,
       });
   return parseCompletion(output, input.prefix);
+}
+
+const warming = new Set<string>();
+
+/**
+ * Start the agent in the background (e.g. when a file opens) so the first
+ * suggestion does not pay the start-up cost. Skipped when already warm.
+ */
+export function prewarmCompletions(
+  provider: string,
+  model: string,
+  cwd: string,
+) {
+  const harness = resolveCompletionProvider(provider);
+  if (!harness || warm.has(harness) || !completionProviderReady(harness))
+    return;
+  const key = `${harness}|${cwd}`;
+  if (warming.has(key)) return;
+  warming.add(key);
+  void completeWithAgent({
+    provider: harness,
+    model,
+    cwd,
+    path: "warmup.txt",
+    prefix: "",
+    suffix: "",
+  })
+    .catch(() => {})
+    .finally(() => warming.delete(key));
 }

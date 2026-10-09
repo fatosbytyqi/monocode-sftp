@@ -47,6 +47,7 @@ import {
   buildCompletionPrompt,
   completeWithAgent,
   parseCompletion,
+  partialInsert,
   resolveCompletionProvider,
   stopWarmCompletions,
 } from "./aiComplete";
@@ -164,5 +165,26 @@ describe("AI completion through installed agents", () => {
         suffix: "",
       }),
     ).rejects.toThrow(/No installed agent/);
+  });
+
+  it("reads a suggestion while it is still streaming", () => {
+    expect(partialInsert("thinking…")).toBeNull();
+    expect(partialInsert("<insert>$sum +")).toBe("$sum +");
+    expect(partialInsert("<insert>$sum += 1;</ins")).toBe("$sum += 1;");
+    expect(partialInsert("<insert>a</insert> trailing")).toBe("a");
+  });
+
+  it("streams partial suggestions to the editor", async () => {
+    available.add("antigravity");
+    const partials: string[] = [];
+    await completeWithAgent({
+      provider: "antigravity",
+      cwd: "/p",
+      path: "/p/a.ts",
+      prefix: "function f() {",
+      suffix: "}",
+      onPartial: (t) => partials.push(t),
+    });
+    expect(partials).toEqual(["\n  return 1;"]);
   });
 });

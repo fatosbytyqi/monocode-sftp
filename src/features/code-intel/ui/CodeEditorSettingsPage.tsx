@@ -365,9 +365,9 @@ export function CodeEditorSettingsPage() {
             label="Wait after typing"
             value={String(settings.ai.debounceMs)}
             options={[
-              { value: "400", label: "Short" },
-              { value: "700", label: "Normal" },
-              { value: "1200", label: "Long" },
+              { value: "300", label: "Short" },
+              { value: "500", label: "Normal" },
+              { value: "900", label: "Long" },
             ]}
             onChange={(v) =>
               updateCodeIntel((s) => ({
