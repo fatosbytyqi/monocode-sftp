@@ -71,6 +71,7 @@ import {
 import { flushSync } from "react-dom";
 import { listen } from "@tauri-apps/api/event";
 import { SftpHost } from "../features/sftp/ui/SftpHost";
+import { CodeIntelNotices } from "../features/code-intel/ui/CodeIntelNotices";
 import {
   OPEN_TERMINAL_COMMAND_EVENT,
   setStartupCommand,
@@ -13122,6 +13123,7 @@ function Workspace({
             onHeightChange={setHarnessUpdateHeight}
           />
           <SftpHost />
+          <CodeIntelNotices />
           <ApprovalToasts
             notices={hiddenApprovalToasts}
             topOffset={

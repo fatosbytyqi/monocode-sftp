@@ -606,6 +606,7 @@ describe("settings navigation", () => {
       "connections",
       "appearance",
       "keybindings",
+      "editor",
       "chat",
       "providers",
       "mcp",

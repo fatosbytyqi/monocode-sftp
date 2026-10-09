@@ -22,6 +22,7 @@ export type SettingsSectionId =
   | "connections"
   | "appearance"
   | "keybindings"
+  | "editor"
   | "chat"
   | "providers"
   | "mcp"
@@ -81,6 +82,15 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description:
       "Every shortcut the workspace handles, from the app menu and the key handler.",
     keywords: "shortcut hotkey keyboard binding",
+  },
+  {
+    id: "editor",
+    group: "app",
+    label: "Code Editor",
+    description:
+      "Suggestions, language servers, AI completions, and SCSS / Less compiling for the file editor.",
+    keywords:
+      "autocomplete intellisense completion snippets lsp language server php intelephense typescript ai copilot ghost sass scss less compile css",
   },
   {
     id: "chat",
@@ -173,6 +183,31 @@ export type SettingsEntry = {
 };
 
 export const SETTINGS_INDEX: SettingsEntry[] = [
+  {
+    id: "code-suggestions",
+    section: "editor",
+    label: "Word and snippet suggestions",
+    keywords: "autocomplete completion snippets words",
+  },
+  {
+    id: "language-servers",
+    section: "editor",
+    label: "Language servers",
+    keywords:
+      "lsp intellisense php intelephense typescript css html json go to definition hover errors",
+  },
+  {
+    id: "ai-suggestions",
+    section: "editor",
+    label: "AI inline suggestions",
+    keywords: "ai copilot ghost text claude anthropic api key completion",
+  },
+  {
+    id: "style-compile",
+    section: "editor",
+    label: "Compile SCSS / Less on save",
+    keywords: "sass scss less compile css source map minify",
+  },
   {
     id: "remote-machines",
     section: "connections",

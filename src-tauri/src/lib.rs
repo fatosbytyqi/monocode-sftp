@@ -6,6 +6,7 @@ mod automations;
 mod azure_devops;
 mod chat_background;
 mod checkpoint;
+mod code_intel;
 mod codex_mono_store;
 mod control;
 pub mod control_cli;
@@ -245,6 +246,7 @@ pub fn run() {
         .manage(pty::PtyHost::new())
         .manage(remote::RemoteConnections::default())
         .manage(sftp::SftpState::default())
+        .manage(code_intel::lsp::LspHost::default())
         .manage(window_transfer::WindowTransferState::new())
         .setup(|app| {
             harness::reap_orphaned_harness_processes();
@@ -277,6 +279,15 @@ pub fn run() {
             menu::dispatch(app, event.id().as_ref());
         })
         .invoke_handler(tauri::generate_handler![
+            code_intel::tools::code_tools_status,
+            code_intel::tools::code_tools_install,
+            code_intel::lsp::lsp_start,
+            code_intel::lsp::lsp_send,
+            code_intel::lsp::lsp_stop,
+            code_intel::compile::style_compile,
+            code_intel::ai::ai_key_status,
+            code_intel::ai::ai_set_key,
+            code_intel::ai::ai_complete,
             sftp::sftp_configs,
             sftp::sftp_init_config,
             sftp::sftp_set_profile,

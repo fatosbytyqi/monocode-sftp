@@ -43,6 +43,7 @@ import { SecondaryButton } from "../../../shared/ui/SecondaryButton";
 import { JiraSettings } from "./JiraSettings";
 import { GradientBlurBackground } from "./GradientBlurBackground";
 import { McpSettings } from "./McpSettings";
+import { CodeEditorSettingsPage } from "../../code-intel/ui/CodeEditorSettingsPage";
 import { InboxProviderMark } from "../../inbox/ui/InboxProviderMark";
 import { RemoveProjectDialog } from "../../projects/ui/RemoveProjectDialog";
 import { WindowControls } from "../../../app/shell/WindowControls";
@@ -584,6 +585,7 @@ export function SettingsView({
               ) : null}
               {section === "chat" ? <ChatPage /> : null}
               {section === "keybindings" ? <KeybindingsPage /> : null}
+              {section === "editor" ? <CodeEditorSettingsPage /> : null}
               {section === "monos" ? <MonosPage /> : null}
               {section === "mcp" ? (
                 <McpSettings cwd={cwd} recents={recents} />
@@ -4149,7 +4151,7 @@ function PageHeader({
  * A titled card of related settings. Everything on a page lives in one, so a
  * page reads as a handful of topics instead of one long list of switches.
  */
-function Group({
+export function Group({
   id,
   title,
   description,
@@ -4194,7 +4196,7 @@ function Group({
   );
 }
 
-function Row({
+export function Row({
   id,
   label,
   description,
@@ -4232,7 +4234,7 @@ function Row({
   );
 }
 
-function Segmented<T extends string>({
+export function Segmented<T extends string>({
   label,
   value,
   options,
@@ -4405,7 +4407,7 @@ function NotificationsBlocked() {
   );
 }
 
-function Toggle({
+export function Toggle({
   label,
   on,
   onChange,
@@ -4441,7 +4443,7 @@ function Toggle({
 }
 
 /** Theme-aware dropdown for a Settings row: a trigger button opening a Popover listbox. Used instead of a native select, whose option popup is OS-rendered and unreadable in dark mode on Windows/Linux. */
-function Select({
+export function Select({
   label,
   value,
   options,

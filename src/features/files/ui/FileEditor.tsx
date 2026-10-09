@@ -56,6 +56,12 @@ import {
   type GitFileDiffKind,
 } from "../../../platform/tauri/fs";
 import { syncWatchedMtime, watchFile } from "../model/fileWatch";
+import { buildCodeIntel } from "../../code-intel/editor/codeIntelExtension";
+import { compileOnSave } from "../../code-intel/model/compileOnSave";
+import {
+  loadCodeIntel,
+  useCodeIntel,
+} from "../../code-intel/model/codeIntelSettings";
 import {
   report,
   sftpDownload,
@@ -110,6 +116,7 @@ export const FILE_EDITOR_AUTOSAVE_DELAY_MS = 1_000;
 
 const editorScheme = new Compartment();
 const editorGitConfig = new Compartment();
+const codeIntelConfig = new Compartment();
 
 type Props = {
   path: string;
@@ -383,6 +390,7 @@ export function FileEditor({
         await syncWatchedMtime(path);
         notifyGitChanged();
         void report(sftpOnSave(path));
+        void compileOnSave(path, cwd);
         if (generation === saveGeneration.current) {
           setSaveState({ status: "saved" });
         }
@@ -394,7 +402,7 @@ export function FileEditor({
         throw error;
       }
     },
-    [path],
+    [path, cwd],
   );
 
   const stageGit = useCallback(
@@ -519,6 +527,7 @@ export function FileEditor({
               <CodeMirrorEditor
                 key={`${path}:${reloadKey}`}
                 path={path}
+                cwd={cwd}
                 commentPath={relativePath}
                 value={loadState.content}
                 showDiff={showDiff}
@@ -543,6 +552,7 @@ export function FileEditor({
         <CodeMirrorEditor
           key={`${path}:${reloadKey}`}
           path={path}
+          cwd={cwd}
           commentPath={relativePath}
           value={loadState.content}
           showDiff={showDiff}
@@ -581,6 +591,7 @@ export function FileEditor({
 
 export function CodeMirrorEditor({
   path,
+  cwd,
   commentPath,
   value,
   showDiff,
@@ -596,6 +607,7 @@ export function CodeMirrorEditor({
   formatOnSave = true,
 }: {
   path: string;
+  cwd: string;
   commentPath: string;
   value: string;
   showDiff: boolean;
@@ -610,6 +622,9 @@ export function CodeMirrorEditor({
   onDocChange?: (content: string) => void;
   formatOnSave?: boolean;
 }) {
+  const cwdRef = useRef(cwd);
+  cwdRef.current = cwd;
+  const codeIntel = useCodeIntel();
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const savedDocumentRef = useRef<Text | null>(null);
@@ -796,11 +811,7 @@ export function CodeMirrorEditor({
       if (!loadAutosave()) return;
       autosaveTimer = window.setTimeout(() => {
         autosaveTimer = 0;
-        if (
-          dirtyRef.current &&
-          loadAutosave() &&
-          canAutosaveRef.current()
-        ) {
+        if (dirtyRef.current && loadAutosave() && canAutosaveRef.current()) {
           save(true);
         }
       }, FILE_EDITOR_AUTOSAVE_DELAY_MS);
@@ -826,6 +837,7 @@ export function CodeMirrorEditor({
         editorMatching,
         editorTyping(path),
         editorAutocomplete,
+        codeIntelConfig.of([]),
         editorLint(path, (count) => onErrorCountChangeRef.current(count)),
         editorScrollbar,
         editorSearch,
@@ -911,6 +923,12 @@ export function CodeMirrorEditor({
         view.dispatch({ effects: language.reconfigure(extension) });
       }
     });
+    if (!showDiff) {
+      void buildCodeIntel(path, cwdRef.current, loadCodeIntel()).then((ext) => {
+        if (!disposed)
+          view.dispatch({ effects: codeIntelConfig.reconfigure(ext) });
+      });
+    }
 
     return () => {
       disposed = true;
@@ -924,6 +942,26 @@ export function CodeMirrorEditor({
       view.destroy();
     };
   }, [formatOnSave, lockOverscroll, path, showDiff, syncChunkNav]);
+
+  // Settings → Code Editor changes apply to open editors right away.
+  const codeIntelReady = useRef(false);
+  useEffect(() => {
+    if (!codeIntelReady.current) {
+      codeIntelReady.current = true;
+      return;
+    }
+    const view = viewRef.current;
+    if (!view || showDiff) return;
+    let cancelled = false;
+    void buildCodeIntel(path, cwd, codeIntel).then((ext) => {
+      if (!cancelled && viewRef.current === view) {
+        view.dispatch({ effects: codeIntelConfig.reconfigure(ext) });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [codeIntel, cwd, path, showDiff]);
 
   useEffect(() => {
     const view = viewRef.current;
